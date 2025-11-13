@@ -10,4 +10,4 @@ COPY app.js .
 
 ENV TEST=Docker
 
-CMD ["node", "app.js"]
+CMD ["npm", "run", "dev"]
