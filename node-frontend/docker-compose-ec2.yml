@@ -3,3 +3,6 @@ services:
     image: 003939337440.dkr.ecr.ap-northeast-2.amazonaws.com/education:{본인이름}
     volumes:
       - ./default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+      - "443:443"
