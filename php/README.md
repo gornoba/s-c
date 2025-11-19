@@ -13,7 +13,7 @@
 프로젝트 루트에서:
 
 ```sh
-docker build -t my-php-app .
+docker build -t my-php-app:latest .
 ```
 
 my-php-app이라는 이미지가 생긴다.
@@ -21,7 +21,7 @@ my-php-app이라는 이미지가 생긴다.
 ## ▶️ 2. Docker 컨테이너 실행
 
 ```sh
-docker run -d -p 8080:80 --name my-php-container my-php-app
+docker run -d --name myweb -p 8080:80 -v $(pwd)/src:/var/www/html my-php-app:latest
 ```
 
 ### 옵션 설명

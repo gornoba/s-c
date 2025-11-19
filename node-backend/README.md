@@ -1,34 +1,35 @@
-## 🔨 1. Docker 이미지 빌드
-
-프로젝트 루트에서:
+## docker network
 
 ```sh
-docker build -t my-node-app .
+docker network create nestjs-network
 ```
 
-my-node-app이라는 이미지가 생긴다.
-
-## ▶️ 2. Docker 컨테이너 실행
+## docker build
 
 ```sh
-docker run -d -p 3000:3000 --name my-node-container my-node-app
+docker build -t my-nestjs-app:latest -f Dockerfile .
 ```
 
-### 옵션 설명
+## docker run
 
-- -d → 백그라운드 실행
-- -p 3000:3000 → 호스트 3000포트 → 컨테이너 3000포트
-- --name → 컨테이너 이름 지정
-- my-node-app → 아까 빌드한 이미지 이름
+```sh
+docker run -d --name database --network nestjs-network -e POSTGRES_PASSWORD=abcde -v $(pwd)/postgres-data:/var/lib/postgresql/data -p 5432:5432 postgres:17-alpine
 
-## 🌐 3. 결과 확인
 
-브라우저에서:
+docker run -d --name cache --network nestjs-network -p 6379:6379 redis:alpine
 
-curl http://localhost:3000
 
-## 4. docker compose
+docker run -d --name my-nestjs-app --network nestjs-network -p 3000:3000 -v $(pwd)/src:/app/src my-nestjs-app:late
+```
+
+## 🔨 1. docker compose
 
 ```sh
 docker compose up -d
 ```
+
+## 🌐 2. 결과 확인
+
+브라우저에서:
+
+curl http://localhost:3000

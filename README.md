@@ -41,6 +41,8 @@ docker version
 
 ## docker compose 설치
 
+https://docs.docker.com/compose/install/linux/#install-the-plugin-manually
+
 ```sh
 DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
 mkdir -p $DOCKER_CONFIG/cli-plugins
