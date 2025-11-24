@@ -1,0 +1,143 @@
+version: "3.8"
+
+# ---------- 네트워크 정의 ----------
+networks:
+  app-net:
+    driver: overlay
+
+# ---------- 볼륨 정의 ----------
+# Swarm 모드에서는 자동으로 볼륨이 생성됩니다.
+# 기존 볼륨을 사용하려면 external: true를 추가하세요.
+volumes:
+  pg-data:
+
+# ---------- Config / Secret 정의 ----------
+# file: 을 쓰면 stack deploy 시 Swarm config/secret로 자동 등록됨
+# external: true를 사용하면 미리 생성된 config/secret을 참조
+configs:
+  edu-config:
+    external: true
+    # file: ./app.env # 파일이 있다면 이걸로 대체
+
+secrets:
+  edu_db_password:
+    external: true
+    # file: ./edu_db_password # 파일이 있다면 이걸로 대체
+
+# ---------- 서비스 정의 ----------
+services:
+  database:
+    image: postgres:16
+    networks:
+      - app-net
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    secrets:
+      - edu_db_password
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_DB: mydb
+      POSTGRES_PASSWORD_FILE: /run/secrets/edu_db_password
+    deploy:
+      mode: replicated # 필요하면 global로도 가능하지만 DB는 보통 1개
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.storage == true # storage 라벨이 있는 노드에만 배치
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 30s
+
+  redis:
+    image: redis:alpine
+    networks:
+      - app-net
+    ports:
+      - "6379:6379"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.cache == true # cache 라벨이 있는 노드에만 배치
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 30s
+
+  api:
+    image: my-nestjs-app:latest # NestJS 이미지 (HEALTHCHECK는 Dockerfile에 정의 가능)
+    networks:
+      - app-net
+    # Redis와 PostgreSQL이 준비될 때까지 대기한 후 애플리케이션 실행
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for database and redis to be ready..."
+        until nc -z database 5432; do echo "Waiting for database..."; sleep 1; done
+        until nc -z redis 6379; do echo "Waiting for redis..."; sleep 1; done
+        echo "All services ready! Starting application..."
+        npm run start:prod
+    # 개발 모드가 필요하면 마지막 줄을 npm run start:dev로 변경
+    # Swarm 모드에서는 기본적으로 ingress 모드로 작동 (모든 노드에서 접근 가능)
+    # publish_mode: ingress  # 기본값
+    # publish_mode: host  # 특정 노드의 포트만 사용하려면 host 모드 사용
+    ports:
+      - "3000:3000" # 외부 노출 필요하면 설정
+    # Config: /etc/app.env 에 마운트
+    configs:
+      - source: edu-config
+        target: /app/.env
+    deploy:
+      mode: replicated
+      replicas: 3
+      update_config:
+        parallelism: 1 # Rolling update: 한 번에 1개씩
+        delay: 10s # 각 라운드 사이 10초 대기
+        order: start-first # 새 컨테이너 먼저 띄우고, 그 다음 예전 것 종료
+        failure_action: rollback # 실패 시 자동 롤백
+        monitor: 30s # 업데이트 후 30초 모니터링
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 30s
+
+  web:
+    image: nginx:alpine
+    networks:
+      - app-net
+    # api 서비스가 준비될 때까지 대기한 후 nginx 실행
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache curl
+        echo "Waiting for api to be ready..."
+        until curl -f http://api:3000/healthcheck 2>/dev/null; do echo "Waiting for api..."; sleep 1; done
+        echo "Api ready! Starting nginx..."
+        nginx -g "daemon off;"
+    ports:
+      - "80:80"
+      - "443:443"
+    # 필요하다면 api로 프록시하는 nginx.conf를 config로 관리 가능
+    # configs:
+    #   - source: web-nginx-conf
+    #     target: /etc/nginx/conf.d/default.conf
+    deploy:
+      mode: replicated
+      replicas: 2
+      placement:
+        constraints:
+          - node.labels.role == worker # 예: worker 노드에만 배치
+      update_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first

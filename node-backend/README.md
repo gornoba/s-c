@@ -19,7 +19,7 @@ docker run -d --name database --network nestjs-network -e POSTGRES_PASSWORD=abcd
 docker run -d --name cache --network nestjs-network -p 6379:6379 redis:alpine
 
 
-docker run -d --name my-nestjs-app --network nestjs-network -p 3000:3000 -v $(pwd)/src:/app/src my-nestjs-app:late
+docker run -d --name my-nestjs-app --network nestjs-network -p 3000:3000 -v $(pwd)/src:/app/src my-nestjs-app:latest
 ```
 
 ## 🔨 1. docker compose
