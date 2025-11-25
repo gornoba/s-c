@@ -443,3 +443,9 @@ docker node update --label-add storage=true --label-add cache=true --label-add r
 
 docker node inspect --pretty <node 이름>
 ```
+
+## 실행
+
+```sh
+docker stack deploy -c docker-compose.yaml <서비스명>
+```
